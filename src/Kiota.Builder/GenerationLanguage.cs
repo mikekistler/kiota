@@ -9,5 +9,6 @@ public enum GenerationLanguage
     Go,
     Swift,
     Ruby,
-    Shell
+    Shell,
+    Curl,
 }

@@ -15,6 +15,7 @@ using Kiota.Builder.Writers.Ruby;
 using Kiota.Builder.Writers.Shell;
 using Kiota.Builder.Writers.Swift;
 using Kiota.Builder.Writers.TypeScript;
+using Kiota.Builder.Writers.Curl;
 
 namespace Kiota.Builder.Writers;
 
@@ -182,6 +183,7 @@ public abstract class LanguageWriter
             GenerationLanguage.Go => new GoWriter(outputPath, clientNamespaceName),
             GenerationLanguage.Shell => new ShellWriter(outputPath, clientNamespaceName),
             GenerationLanguage.Swift => new SwiftWriter(outputPath, clientNamespaceName),
+            GenerationLanguage.Curl => new CurlWriter(outputPath, clientNamespaceName),
             _ => throw new InvalidEnumArgumentException($"{language} language currently not supported."),
         };
     }

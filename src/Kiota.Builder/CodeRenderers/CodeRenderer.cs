@@ -37,7 +37,7 @@ public class CodeRenderer
             await sw.FlushAsync().ConfigureAwait(false); // stream writer doesn't not have a cancellation token overload https://github.com/dotnet/runtime/issues/64340
     }
     // We created barrels for code namespaces. Skipping for empty namespaces, ones created for users, and ones with same namespace as class name.
-    public async Task RenderCodeNamespaceToFilePerClassAsync(LanguageWriter writer, CodeNamespace currentNamespace, CancellationToken cancellationToken)
+    public virtual async Task RenderCodeNamespaceToFilePerClassAsync(LanguageWriter writer, CodeNamespace currentNamespace, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(currentNamespace);
@@ -105,6 +105,7 @@ public class CodeRenderer
         {
             GenerationLanguage.TypeScript => new TypeScriptCodeRenderer(config),
             GenerationLanguage.Python => new PythonCodeRenderer(config),
+            GenerationLanguage.Curl => new CurlCodeRenderer(config),
             _ => new CodeRenderer(config),
         };
     }

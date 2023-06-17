@@ -16,6 +16,9 @@ public interface ILanguageRefiner
             case GenerationLanguage.CSharp:
                 await new CSharpRefiner(config).Refine(generatedCode, cancellationToken).ConfigureAwait(false);
                 break;
+            case GenerationLanguage.Curl:
+                await new CurlRefiner(config).Refine(generatedCode, cancellationToken).ConfigureAwait(false);
+                break;
             case GenerationLanguage.TypeScript:
                 await new TypeScriptRefiner(config).Refine(generatedCode, cancellationToken).ConfigureAwait(false);
                 break;

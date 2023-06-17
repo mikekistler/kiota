@@ -150,6 +150,28 @@
       "stopAtEntry": false
     },
     {
+      "name": "Launch Curl",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/kiota/bin/Debug/net7.0/kiota.dll",
+      "args": [
+        "generate",
+        "--openapi",
+        "https://raw.githubusercontent.com/microsoftgraph/msgraph-sdk-powershell/dev/openApiDocs/v1.0/Mail.yml",
+        "--language",
+        "curl",
+        "-o",
+        "${workspaceFolder}/samples/msgraph-mail/curl",
+        "-n",
+        "graphjavav4.utilities",
+        "--co"
+      ],
+      "cwd": "${workspaceFolder}/src/kiota",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
       "name": "Launch Python",
       "type": "coreclr",
       "request": "launch",

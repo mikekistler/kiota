@@ -86,6 +86,8 @@ export enum KiotaGenerationLanguage {
     Ruby = 7,
     // eslint-disable-next-line @typescript-eslint/naming-convention
     Shell = 8,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    Curl = 9,
 }
 export function generationLanguageToString(language: KiotaGenerationLanguage): string {
     switch (language) {
@@ -107,6 +109,8 @@ export function generationLanguageToString(language: KiotaGenerationLanguage): s
             return "Ruby";
         case KiotaGenerationLanguage.Shell:
             return "Shell";
+        case KiotaGenerationLanguage.Curl:
+            return "Curl";
         default:
             throw new Error("unknown language");
     }
@@ -131,12 +135,15 @@ export function parseGenerationLanguage(value: string): KiotaGenerationLanguage 
             return KiotaGenerationLanguage.Ruby;
         case "Shell":
             return KiotaGenerationLanguage.Shell;
+        case "Curl":
+            return KiotaGenerationLanguage.Curl;
         default:
             throw new Error("unknown language");
     }
 }
 export const allGenerationLanguages = [
     KiotaGenerationLanguage.CSharp,
+    KiotaGenerationLanguage.Curl,
     KiotaGenerationLanguage.Go,
     KiotaGenerationLanguage.Java,
     KiotaGenerationLanguage.PHP,
