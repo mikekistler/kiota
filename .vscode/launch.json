@@ -172,6 +172,26 @@
       "stopAtEntry": false
     },
     {
+      "name": "Debug Curl",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/kiota/bin/Debug/net7.0/kiota.dll",
+      "args": [
+        "generate",
+        "--openapi",
+        "/Users/mikekistler/Projects/Azure/azure-rest-api-specs/specification/loadtestservice/data-plane/Microsoft.LoadTestService/stable/2022-11-01/loadtestservice.json",
+        "--language",
+        "curl",
+        "-o",
+        "${workspaceFolder}/output",
+        "--co"
+      ],
+      "cwd": "${workspaceFolder}/src/kiota",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
       "name": "Launch Python",
       "type": "coreclr",
       "request": "launch",

@@ -18,13 +18,55 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
         if (!codeElement.IsOfKind(CodeMethodKind.RequestGenerator)) return;
         if (codeElement.HttpMethod == null) throw new InvalidOperationException($"{nameof(codeElement.HttpMethod)} should not be null");
 
-        writer.WriteLine("#!/bin/bash\n");
-        writer.WriteLine("source ./init.sh\n");
-
         // Create output file name based on generated file name
         var currentNamespace = codeElement.GetImmediateParentOfType<CodeNamespace>();
         var shFilename = Path.GetFileName(writer.PathSegmenter!.GetPath(currentNamespace, codeElement, false));
         var outFilename = shFilename.Replace(".sh", ".out", StringComparison.OrdinalIgnoreCase);
+
+        // Set SerializationName for each parameter
+        foreach (var parameter in codeElement.PathQueryAndHeaderParameters)
+        {
+            if (string.IsNullOrEmpty(parameter.SerializationName))
+                parameter.SerializationName = parameter.Name;
+        }
+
+        // Get the list of path parameters (they are always required)
+        var pathParameters = codeElement.PathQueryAndHeaderParameters
+                                .Where(static p => p.IsOfKind(CodeParameterKind.Path))
+                                .ToList()
+                                ?? new List<CodeParameter>();
+
+        // Get the list of required query parameters
+        var requiredQueryParameters = codeElement.PathQueryAndHeaderParameters
+                .Where(static p => p.IsOfKind(CodeParameterKind.QueryParameter) && !p.Optional)
+                .ToList()
+                ?? new List<CodeParameter>();
+
+        writer.WriteLine("#!/bin/bash\n");
+
+        // Generate a function to print a usage statement and exit
+        writer.WriteLine("function usage() {");
+        writer.IncreaseIndent();
+        writer.WriteLine($"echo \"Usage:\"");
+        writer.WriteLine($"echo \"    $0 {string.Join(" ", pathParameters.Select(p => $"<{p.Name}>"))}\"");
+        if (pathParameters.Any() || requiredQueryParameters.Any())
+        {
+            writer.WriteLine($"echo \"Environment variables:\"");
+            var allParams = pathParameters.Concat(requiredQueryParameters).ToList();
+            writer.WriteLine($"echo \"    {string.Join(",", allParams.Select(p => $"{p.Name}"))}\"");
+        }
+        writer.WriteLine("exit 1");
+        writer.DecreaseIndent();
+        writer.WriteLine($"}}\n");
+
+        // Display usage if the first parameter is "-h" or "--help".
+        writer.WriteLine("if [[ $1 == \"-h\" || $1 == \"--help\" ]]; then");
+        writer.IncreaseIndent();
+        writer.WriteLine("usage");
+        writer.DecreaseIndent();
+        writer.WriteLine("fi\n");
+
+        writer.WriteLine("source ./init.sh\n");
 
         // Set the baseUrl
         var baseUrl = "${endpoint}";
@@ -34,31 +76,19 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
         }
         writer.WriteLine($"baseUrl={baseUrl}\n");
 
-        // Set SerializationName for each parameter
-        foreach (var parameter in codeElement.PathQueryAndHeaderParameters)
-        {
-            if (string.IsNullOrEmpty(parameter.SerializationName))
-                parameter.SerializationName = parameter.Name;
-        }
-
         // Create shell variables for each required parameter
         // Path parameters are always required, so we'll handle them first
-        var pathParameters = codeElement.PathQueryAndHeaderParameters
-                .Where(static p => p.IsOfKind(CodeParameterKind.Path))
-                .ToList()
-                ?? new List<CodeParameter>();
+
         for (int i = 0; i < pathParameters.Count; i++)
         {
             var parameterName = pathParameters[i].Name.ToFirstCharacterLowerCase();
-            writer.WriteLine($"{parameterName}=${i + 1}");
+            writer.WriteLine($"{parameterName}=${{{parameterName}:-${i + 1}}}");
         }
-        var requiredQueryParameters = codeElement.PathQueryAndHeaderParameters
-                .Where(static p => p.IsOfKind(CodeParameterKind.QueryParameter) && !p.Optional)
-                ?? new List<CodeParameter>();
         foreach (var parameter in requiredQueryParameters)
         {
             var parameterName = parameter.Name.ToFirstCharacterLowerCase();
-            writer.WriteLine($"{parameterName}=\"{parameterName}\"");
+
+            writer.WriteLine($"{parameterName}=${{{parameterName}:-{parameterName}}}");
         }
         if (pathParameters.Any() || requiredQueryParameters.Any())
             writer.WriteLine();
@@ -90,16 +120,15 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
             "?" + string.Join("&", requiredQueryParameters.Select(p => $"{p.SerializationName}=${{{p.Name}}}"))
             : "";
 
-        // -s hides the progress bar; -D - sends the headers to stdout
-
-        // Convert 
         var httpMethod = codeElement.HttpMethod.ToString()!.ToUpperInvariant();
+        // -s hides the progress bar; -D - sends the headers to stdout
         writer.WriteLine($"curl -s -D - -X {httpMethod} \\");
         writer.IncreaseIndent();
+        writer.WriteLine("-H \"Authorization: Bearer ${token}\" \\");
         writer.WriteLine($"${{baseUrl}}/{urlTemplate}{queryString} \\");
         writer.WriteLine($"> {outFilename}\n");
         writer.DecreaseIndent();
         writer.WriteLine($"head -n 1 {outFilename}");
-        writer.WriteLine($"awk '/^\\r?$/{{f=1}}f' {outFilename} | jq '.'\n");
+        writer.WriteLine($"awk '/^\\r?$/{{f=1}}f' {outFilename} | jq '.'");
     }
 }
