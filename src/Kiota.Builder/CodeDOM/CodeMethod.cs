@@ -123,6 +123,7 @@ public class CodeMethod : CodeTerminalWithKind<CodeMethodKind>, ICloneable, IDoc
     public string RequestBodyContentType { get; set; } = string.Empty;
 #pragma warning disable CA2227
     public HashSet<string> AcceptedResponseTypes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> ResponseCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 #pragma warning restore CA2227
     public AccessModifier Access { get; set; } = AccessModifier.Public;
 #nullable disable // exposing property is required
@@ -166,7 +167,6 @@ public class CodeMethod : CodeTerminalWithKind<CodeMethodKind>, ICloneable, IDoc
     {
         get; set;
     }
-
     /// <summary>
     /// The combination of the path, query and header parameters for the current URL.
     /// Only use this property if the language you are generating for doesn't support fluent API style (e.g. Shell/CLI)
@@ -295,6 +295,7 @@ public class CodeMethod : CodeTerminalWithKind<CodeMethodKind>, ICloneable, IDoc
             OriginalIndexer = OriginalIndexer,
             errorMappings = new(errorMappings),
             AcceptedResponseTypes = new(AcceptedResponseTypes, StringComparer.OrdinalIgnoreCase),
+            ResponseCodes = new(ResponseCodes, StringComparer.OrdinalIgnoreCase),
             PagingInformation = PagingInformation?.Clone() as PagingInformation,
             Documentation = (CodeDocumentation)Documentation.Clone(),
             Deprecation = Deprecation,

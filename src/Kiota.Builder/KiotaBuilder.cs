@@ -1206,6 +1206,7 @@ public partial class KiotaBuilder
                 Parent = parentClass,
                 Deprecation = deprecationInformation,
             };
+            generatorMethod.ResponseCodes = operation.Responses.Keys.ToHashSet();
             if (schema != null)
             {
                 var mediaType = operation.Responses.Values.SelectMany(static x => x.Content).First(x => x.Value.Schema == schema).Key;
