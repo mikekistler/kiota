@@ -23,6 +23,11 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
         var shFilename = Path.GetFileName(writer.PathSegmenter!.GetPath(currentNamespace, codeElement, false));
         var outFilename = shFilename.Replace(".sh", ".out", StringComparison.OrdinalIgnoreCase);
 
+        // Get paging information from the RequestExecutor
+        var requestExecutor = codeElement.Parent?.GetChildElements().OfType<CodeMethod>()
+            .Where(static e => e.IsOfKind(CodeMethodKind.RequestExecutor)).First();
+        var pagingInfo = requestExecutor?.PagingInformation;
+
         // Set SerializationName for each parameter
         foreach (var parameter in codeElement.PathQueryAndHeaderParameters)
         {
@@ -48,7 +53,16 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
         writer.WriteLine("function usage() {");
         writer.IncreaseIndent();
         writer.WriteLine($"echo \"Usage:\"");
-        writer.WriteLine($"echo \"    $0 {string.Join(" ", pathParameters.Select(p => $"<{p.Name}>"))}\"");
+        writer.Write("echo \"    $0");
+        if (pagingInfo != null)
+        {
+            writer.Write(" [--nextPage]", false);
+        }
+        if (pathParameters.Count > 0)
+        {
+            writer.Write($" {string.Join(" ", pathParameters.Select(p => $"<{p.Name}>"))}", false);
+        }
+        writer.WriteLine("\"", false);
         if (pathParameters.Any() || requiredQueryParameters.Any())
         {
             writer.WriteLine($"echo \"Environment variables:\"");
@@ -120,12 +134,44 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
             "?" + string.Join("&", requiredQueryParameters.Select(p => $"{p.SerializationName}=${{{p.Name}}}"))
             : "";
 
+        if (pagingInfo != null)
+        {
+            writer.WriteLine("if [[ $1 == \"--nextPage\" ]]; then");
+            writer.IncreaseIndent();
+            writer.WriteLine($"if [[ ! -e {outFilename} ]]; then");
+            writer.IncreaseIndent();
+            writer.WriteLine($"echo \"{outFilename} not found. Please run without --nextPage first.\"");
+            writer.WriteLine("exit 1");
+            writer.DecreaseIndent();
+            writer.WriteLine("fi");
+            writer.WriteLine($"url=$(awk '/^\\r?$/{{f=1}}f' {outFilename} | jq -r '.{pagingInfo.NextLinkName}')");
+            writer.WriteLine("if [[ \"$url\" == \"null\" ]]; then");
+            writer.IncreaseIndent();
+            writer.WriteLine("echo \"No next page found.\"");
+            writer.WriteLine("exit 1");
+            writer.DecreaseIndent();
+            writer.WriteLine("fi");
+            writer.DecreaseIndent();
+            writer.WriteLine("else");
+            writer.IncreaseIndent();
+            writer.WriteLine($"url=${{baseUrl}}/{urlTemplate}{queryString}");
+            writer.DecreaseIndent();
+            writer.WriteLine("fi\n");
+        }
+
         var httpMethod = codeElement.HttpMethod.ToString()!.ToUpperInvariant();
         // -s hides the progress bar; -D - sends the headers to stdout
         writer.WriteLine($"curl -s -D - -X {httpMethod} \\");
         writer.IncreaseIndent();
         writer.WriteLine("-H \"Authorization: Bearer ${token}\" \\");
-        writer.WriteLine($"${{baseUrl}}/{urlTemplate}{queryString} \\");
+        if (pagingInfo != null)
+        {
+            writer.WriteLine($"${{url}} \\");
+        }
+        else
+        {
+            writer.WriteLine($"${{baseUrl}}/{urlTemplate}{queryString} \\");
+        }
         writer.WriteLine($"> {outFilename}\n");
         writer.DecreaseIndent();
         writer.WriteLine($"head -n 1 {outFilename}");
