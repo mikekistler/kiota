@@ -47,6 +47,8 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
                 .ToList()
                 ?? new List<CodeParameter>();
 
+        var bodyParameter = codeElement.Parameters.FirstOrDefault(p => p.IsOfKind(CodeParameterKind.RequestBody));
+
         writer.WriteLine("#!/bin/bash\n");
 
         // Generate a function to print a usage statement and exit
@@ -101,11 +103,17 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
         foreach (var parameter in requiredQueryParameters)
         {
             var parameterName = parameter.Name.ToFirstCharacterLowerCase();
-
             writer.WriteLine($"{parameterName}=${{{parameterName}:-{parameterName}}}");
         }
         if (pathParameters.Any() || requiredQueryParameters.Any())
             writer.WriteLine();
+
+        if (bodyParameter != null)
+        {
+            writer.WriteLine("# Set the request body");
+            var parameterName = bodyParameter.Name.ToFirstCharacterLowerCase();
+            writer.WriteLine($"{parameterName}='{{\n}}'\n");
+        }
 
         var urlTemplate = "";
         if (codeElement.Parent is CodeClass parentClass)
@@ -154,9 +162,16 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
             writer.DecreaseIndent();
             writer.WriteLine("else");
             writer.IncreaseIndent();
-            writer.WriteLine($"url=${{baseUrl}}/{urlTemplate}{queryString}");
+            writeParamChecks(writer, pathParameters);
+            writer.WriteLine($"url=\"${{baseUrl}}/{urlTemplate}{queryString}\"");
             writer.DecreaseIndent();
             writer.WriteLine("fi\n");
+        }
+        else
+        {
+            writeParamChecks(writer, pathParameters);
+            if (pathParameters.Any() || requiredQueryParameters.Any())
+                writer.WriteLine();
         }
 
         var httpMethod = codeElement.HttpMethod.ToString()!.ToUpperInvariant();
@@ -164,17 +179,47 @@ public class CodeMethodWriter : BaseElementWriter<CodeMethod, CurlConventionServ
         writer.WriteLine($"curl -s -D - -X {httpMethod} \\");
         writer.IncreaseIndent();
         writer.WriteLine("-H \"Authorization: Bearer ${token}\" \\");
+        if (bodyParameter != null)
+        {
+            if (codeElement.RequestBodyContentType != null)
+            {
+                writer.WriteLine($"-H \"Content-Type: {codeElement.RequestBodyContentType}\" \\");
+            }
+            var parameterName = bodyParameter.Name.ToFirstCharacterLowerCase();
+            writer.WriteLine($"-d \"${{{parameterName}}}\" \\");
+        }
         if (pagingInfo != null)
         {
             writer.WriteLine($"${{url}} \\");
         }
         else
         {
-            writer.WriteLine($"${{baseUrl}}/{urlTemplate}{queryString} \\");
+            writer.WriteLine($"\"${{baseUrl}}/{urlTemplate}{queryString}\" \\");
         }
         writer.WriteLine($"> {outFilename}\n");
         writer.DecreaseIndent();
         writer.WriteLine($"head -n 1 {outFilename}");
-        writer.WriteLine($"awk '/^\\r?$/{{f=1}}f' {outFilename} | jq '.'");
+        if (codeElement.AcceptedResponseTypes.All(t => t == "application/json"))
+        {
+            writer.WriteLine($"awk '/^\\r?$/{{f=1}}f' {outFilename} | jq '.'");
+        }
+        else
+        {
+            writer.WriteLine($"awk '/^\\r?$/{{f=1}}f' {outFilename}");
+        }
+    }
+
+    private void writeParamChecks(LanguageWriter writer, List<CodeParameter> parameters)
+    {
+        foreach (var parameter in parameters)
+        {
+            var parameterName = parameter.Name.ToFirstCharacterLowerCase();
+            writer.WriteLine($"if [[ ! \"{parameterName}\" ]]; then");
+            writer.IncreaseIndent();
+            writer.WriteLine($"echo \"A value must be provided for {parameterName}.\"");
+            writer.WriteLine("usage");
+            writer.DecreaseIndent();
+            writer.WriteLine("fi");
+        }
     }
 }
